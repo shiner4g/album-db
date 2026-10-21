@@ -125,7 +125,11 @@ button { cursor: pointer; }
 .panel h2 { margin: 0 0 14px; font-size: 17px; font-family: "Noto Serif KR", serif; }
 .form-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
 .form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
-.c-3 { grid-column: span 3; } .c-2 { grid-column: span 2; } .c-4 { grid-column: span 4; } .c-6 { grid-column: span 6; } .c-12 { grid-column: span 12; }
+.c-3 { grid-column: span 3; } .c-2 { grid-column: span 2; } .c-4 { grid-column: span 4; } .c-6 { grid-column: span 6; } .c-12 { grid-column: span 12; } .c-8 { grid-column: span 8; }
+textarea.field { font: inherit; resize: vertical; min-height: 140px; }
+.preview { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.preview ul { max-height: 180px; overflow: auto; margin: 6px 0 0; padding-left: 18px; color: var(--ink); }
+.preview .bad { color: var(--danger); }
 .form-foot { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
 .msg { color: var(--danger); font-size: 13px; }
 
@@ -158,7 +162,7 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
   h1 { font-size: 28px; }
   .toolbar { grid-template-columns: 1fr 1fr; }
   .toolbar .search { grid-column: span 2; }
-  .form-grid .c-3, .form-grid .c-2, .form-grid .c-4, .form-grid .c-6 { grid-column: span 12; }
+  .form-grid .c-3, .form-grid .c-2, .form-grid .c-4, .form-grid .c-6, .form-grid .c-8 { grid-column: span 12; }
   .form-grid .half { grid-column: span 6; }
   table { min-width: 0; }
   thead { display: none; }
@@ -197,6 +201,7 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
     </div>
     <div class="actions">
       <span class="status" id="status">DB 연결 중</span>
+      <button class="btn" id="btnImport" type="button" hidden>일괄 가져오기</button>
       <button class="btn" id="btnExport" type="button" hidden>CSV 내보내기</button>
       <button class="btn" id="btnAuth" type="button">Google 로그인</button>
       <button class="btn primary" id="btnAdd" type="button" hidden>앨범 추가</button>
@@ -236,6 +241,27 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
     </div>
   </section>
 
+  <section class="panel" id="importPanel" hidden aria-labelledby="importTitle">
+    <h2 id="importTitle">일괄 가져오기</h2>
+    <div class="form-grid">
+      <label class="c-4">아티스트 (모든 줄에 적용)
+        <input class="field" id="iArtist" maxlength="80" placeholder="예: Pat Metheny">
+      </label>
+      <label class="c-8">파일에서 불러오기 (.tsv, .txt)
+        <input class="field" id="iFile" type="file" accept=".tsv,.txt,text/tab-separated-values,text/plain">
+      </label>
+      <label class="c-12">목록 붙여넣기 (구분, 별점, 연도, 제목, 한줄평 순서, 탭으로 구분)
+        <textarea class="field" id="iText" rows="8" spellcheck="false"></textarea>
+      </label>
+    </div>
+    <div class="preview" id="iPreview" aria-live="polite"></div>
+    <div class="form-foot">
+      <button class="btn primary" id="btnImportSave" type="button" disabled>저장</button>
+      <button class="btn" id="btnImportCancel" type="button">닫기</button>
+      <span class="msg" id="iMsg" role="alert"></span>
+    </div>
+  </section>
+
   <div class="toolbar">
     <input class="field search" id="q" type="search" placeholder="아티스트, 제목, 한줄평 검색" aria-label="검색">
     <select class="field" id="fltCat" aria-label="구분 필터"></select>
@@ -264,7 +290,7 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDVFY0a9gzaqkJENaSmSfgaDx342iInJmU",
@@ -277,7 +303,7 @@ const firebaseConfig = {
 
 (function () {
   "use strict";
-  var DEFAULT_CATS = ["솔로", "그룹", "라이브", "컴필레이션", "OST"];
+  var DEFAULT_CATS = ["솔로", "그룹", "협업", "라이브", "컴필레이션", "OST"];
   var PALETTE = ["#1f7a8c", "#b5651d", "#6a4c93", "#3a7d44", "#b23a48", "#4a6fa5", "#8a7a1f"];
 
   var $ = function (id) { return document.getElementById(id); };
@@ -297,6 +323,7 @@ const firebaseConfig = {
       o.value = String(v); o.textContent = fmtRate(v);
       sel.appendChild(o);
     }
+    var o0 = document.createElement("option"); o0.value = ""; o0.textContent = "평가 보류"; sel.appendChild(o0);
     sel.value = "4";
   })();
 
@@ -391,7 +418,7 @@ const firebaseConfig = {
 
       var c2 = td("t-rate");
       var rate = document.createElement("div"); rate.className = "rate";
-      var n = document.createElement("span"); n.className = "n"; n.textContent = fmtRate(a.rating || 0);
+      var n = document.createElement("span"); n.className = "n"; n.textContent = a.rating == null ? "-" : fmtRate(a.rating);
       rate.appendChild(n);
       if (a.signature) { var s = document.createElement("span"); s.className = "sig"; s.textContent = "★"; s.title = "대표앨범"; s.setAttribute("aria-label", "대표앨범"); rate.appendChild(s); }
       c2.appendChild(rate);
@@ -431,13 +458,14 @@ const firebaseConfig = {
     editingId = a ? a.id : null;
     $("formTitle").textContent = a ? "앨범 수정" : "앨범 추가";
     $("fCat").value = a ? (a.category || "") : "";
-    $("fRate").value = a ? String(a.rating) : "4";
+    $("fRate").value = a ? (a.rating == null ? "" : String(a.rating)) : "4";
     $("fYear").value = a ? (a.year || "") : "";
     $("fArtist").value = a ? (a.artist || "") : ($("fltArtist").value || "");
     $("fTitle").value = a ? (a.title || "") : "";
     $("fComment").value = a ? (a.comment || "") : "";
     $("fSig").checked = a ? !!a.signature : false;
     $("formMsg").textContent = "";
+    $("importPanel").hidden = true;
     $("formPanel").hidden = false;
     $("formPanel").scrollIntoView({ block: "nearest" });
     $("fCat").focus();
@@ -462,7 +490,7 @@ const firebaseConfig = {
     if (!yearRaw || isNaN(year) || year < 1900 || year > 2100) { $("formMsg").textContent = "연도를 1900~2100 사이 숫자로 입력하세요."; $("fYear").focus(); return; }
     var data = {
       category: $("fCat").value.trim() || "기타",
-      rating: parseFloat($("fRate").value),
+      rating: $("fRate").value === "" ? null : parseFloat($("fRate").value),
       year: year,
       artist: artist,
       title: title,
@@ -516,7 +544,97 @@ const firebaseConfig = {
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
+  // ---------- 일괄 가져오기 ----------
+  var importRows = [];
+  function parseImport(text, artist) {
+    var rows = [], errors = [];
+    text.split(/\r?\n/).forEach(function (line, i) {
+      if (!line.trim()) return;
+      var cols = (line.indexOf("\t") >= 0 ? line.split("\t") : line.split(/\s{2,}/)).map(function (c) { return c.trim(); });
+      if (cols[0] === "구분") return;
+      var n = (i + 1) + "번째 줄";
+      if (cols.length < 4) { errors.push(n + ": 열이 부족합니다 (구분, 별점, 연도, 제목은 필수)"); return; }
+      var rateRaw = cols[1], sig = rateRaw.indexOf("★") >= 0;
+      var rateTxt = rateRaw.replace(/[★\s]/g, ""), rating = null;
+      if (rateTxt !== "" && rateTxt !== "-") {
+        rating = parseFloat(rateTxt);
+        if (isNaN(rating) || rating < 0.5 || rating > 5 || Math.round(rating * 2) !== rating * 2) { errors.push(n + ": 별점을 읽을 수 없습니다 (" + rateRaw + ")"); return; }
+      }
+      var year = parseInt(cols[2], 10);
+      if (isNaN(year) || year < 1900 || year > 2100) { errors.push(n + ": 연도를 읽을 수 없습니다 (" + cols[2] + ")"); return; }
+      if (!cols[3]) { errors.push(n + ": 제목이 비어 있습니다"); return; }
+      rows.push({ category: cols[0] || "기타", rating: rating, year: year, artist: artist, title: cols[3], comment: cols.slice(4).join(" ").trim(), signature: sig });
+    });
+    return { rows: rows, errors: errors };
+  }
+  function dupKey(a) { return [a.artist, a.title, a.year].join("|").toLowerCase(); }
+
+  function updateImportPreview() {
+    var artist = $("iArtist").value.trim(), text = $("iText").value;
+    var box = $("iPreview"); box.textContent = ""; $("iMsg").textContent = "";
+    importRows = []; $("btnImportSave").disabled = true; $("btnImportSave").textContent = "저장";
+    if (!text.trim()) return;
+    if (!artist) { box.textContent = "아티스트를 입력하면 미리보기가 나타납니다."; return; }
+    var res = parseImport(text, artist);
+    var have = {}; albums.forEach(function (a) { have[dupKey(a)] = 1; });
+    var fresh = res.rows.filter(function (r) { return !have[dupKey(r)]; });
+    importRows = fresh;
+    var head = document.createElement("div");
+    head.textContent = res.rows.length + "장 인식, 이미 등록된 " + (res.rows.length - fresh.length) + "장 제외, 저장 대상 " + fresh.length + "장";
+    box.appendChild(head);
+    if (res.errors.length) {
+      var eu = document.createElement("ul"); eu.className = "bad";
+      res.errors.forEach(function (m) { var li = document.createElement("li"); li.textContent = m; eu.appendChild(li); });
+      box.appendChild(eu);
+    }
+    if (fresh.length) {
+      var ul = document.createElement("ul");
+      fresh.forEach(function (r) {
+        var li = document.createElement("li");
+        li.textContent = r.year + "  " + r.title + "  (" + r.category + ", " + (r.rating == null ? "평가 보류" : fmtRate(r.rating)) + (r.signature ? " ★" : "") + ")";
+        ul.appendChild(li);
+      });
+      box.appendChild(ul);
+      $("btnImportSave").disabled = false;
+      $("btnImportSave").textContent = fresh.length + "장 저장";
+    }
+  }
+
+  async function runImport() {
+    if (saving || !importRows.length) return;
+    if (!fs || !user) { $("iMsg").textContent = "로그인한 뒤 저장할 수 있습니다."; return; }
+    saving = true; $("btnImportSave").disabled = true; $("iMsg").textContent = "";
+    var rows = importRows.slice(), done = 0, base = Date.now();
+    try {
+      for (var i = 0; i < rows.length; i += 400) {
+        var batch = writeBatch(fs);
+        rows.slice(i, i + 400).forEach(function (r, j) {
+          var d = Object.assign({}, r); d.createdAt = base + i + j;
+          batch.set(doc(collection(fs, "albums")), d);
+        });
+        await batch.commit();
+        done += Math.min(400, rows.length - i);
+      }
+      $("iText").value = ""; updateImportPreview();
+      $("iPreview").textContent = done + "장을 저장했습니다.";
+    } catch (e) {
+      $("iMsg").textContent = (done ? done + "장 저장 후 중단되었습니다. " : "") + errText(e);
+      $("btnImportSave").disabled = false;
+    } finally { saving = false; }
+  }
+
   // ---------- 이벤트 ----------
+  $("btnImport").addEventListener("click", function () { closeForm(); $("importPanel").hidden = false; $("iArtist").focus(); });
+  $("btnImportCancel").addEventListener("click", function () { $("importPanel").hidden = true; });
+  $("btnImportSave").addEventListener("click", runImport);
+  $("iArtist").addEventListener("input", updateImportPreview);
+  $("iText").addEventListener("input", updateImportPreview);
+  $("iFile").addEventListener("change", function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { $("iText").value = String(r.result).replace(/^\ufeff/, ""); updateImportPreview(); };
+    r.readAsText(f, "utf-8");
+  });
   $("btnAdd").addEventListener("click", function () { openForm(null); });
   $("btnCancel").addEventListener("click", closeForm);
   $("btnSave").addEventListener("click", onSave);
@@ -569,11 +687,11 @@ const firebaseConfig = {
     albums = [];
     if (!u) {
       loaded = true; closeForm();
-      $("btnAuth").textContent = "Google 로그인"; $("btnAdd").hidden = true;
+      $("btnAuth").textContent = "Google 로그인"; $("btnAdd").hidden = true; $("btnImport").hidden = true; $("importPanel").hidden = true;
       setStatus("로그아웃 상태"); render(); return;
     }
     loaded = false;
-    $("btnAuth").textContent = "로그아웃"; $("btnAdd").hidden = false;
+    $("btnAuth").textContent = "로그아웃"; $("btnAdd").hidden = false; $("btnImport").hidden = false;
     setStatus(u.email || "로그인됨"); render();
     unsub = onSnapshot(collection(fs, "albums"), function (snap) {
       albums = snap.docs.map(function (d) { var o = Object.assign({}, d.data()); o.id = d.id; return o; });
