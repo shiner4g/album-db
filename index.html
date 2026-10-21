@@ -294,8 +294,8 @@ tbody tr:focus-visible { outline-offset: -2px; }
     <table>
       <thead>
         <tr>
-          <th class="col-year"><button type="button" data-sort="year" aria-pressed="true">연도</button></th>
-          <th><button type="button" data-sort="title" aria-pressed="false">제목</button></th>
+          <th class="col-year"><button type="button" data-sort="year" aria-pressed="false">연도</button></th>
+          <th><button type="button" data-sort="artist" aria-pressed="false">제목</button></th>
           <th class="col-rate"><button type="button" data-sort="rating" aria-pressed="false">별점</button></th>
           <th class="col-cat"><button type="button" data-sort="category" aria-pressed="false">구분</button></th>
           <th>한줄평</th>
@@ -330,7 +330,7 @@ const firebaseConfig = {
   var albums = [], loaded = false;
   var canWrite = true;
   var editingId = null, saving = false;
-  var sort = { key: "year", dir: "asc" };
+  var sort = { key: null, dir: "asc" };  // key가 null이면 기본 순서(아티스트 → 연도)
   var delTimer = null;
   var lastCatKey = "", lastArtist = "";
 
@@ -367,16 +367,20 @@ const firebaseConfig = {
       }
       return true;
     });
-    var k = sort.key, d = sort.dir === "asc" ? 1 : -1;
+    var k = sort.key, d = sort.dir === "desc" ? -1 : 1;
     function cmpStr(x, y) { return String(x || "").localeCompare(String(y || ""), "ko"); }
+    // 기본 순서: 아티스트 → 연도 (같은 아티스트·연도면 등록 순서)
+    function byDefault(a, b) {
+      return cmpStr(a.artist, b.artist) || ((a.year || 0) - (b.year || 0)) || ((a.createdAt || 0) - (b.createdAt || 0));
+    }
     list.sort(function (a, b) {
       var r = 0;
       if (k === "rating") r = (a.rating || 0) - (b.rating || 0);
       else if (k === "year") r = (a.year || 0) - (b.year || 0);
       else if (k === "category") r = cmpStr(a.category, b.category);
-      else if (k === "title") r = cmpStr(a.artist, b.artist) || cmpStr(a.title, b.title);
+      else if (k === "artist") r = cmpStr(a.artist, b.artist);
       if (r !== 0) return r * d;
-      return ((a.year || 0) - (b.year || 0)) || cmpStr(a.title, b.title);
+      return byDefault(a, b);
     });
     return list;
   }
@@ -751,25 +755,24 @@ const firebaseConfig = {
   ["fCat", "fYear", "fArtist", "fTitle", "fComment"].forEach(function (id) {
     $(id).addEventListener("keydown", function (e) { if (e.key === "Enter") onSave(); });
   });
-  document.querySelectorAll("th button[data-sort]").forEach(function (b) {
+  var sortBtns = document.querySelectorAll("th button[data-sort]");
+  sortBtns.forEach(function (b) { b.setAttribute("data-label", b.textContent); });
+  function paintSort() {
+    sortBtns.forEach(function (x) {
+      var on = x.getAttribute("data-sort") === sort.key;
+      x.setAttribute("aria-pressed", on ? "true" : "false");
+      x.textContent = x.getAttribute("data-label") + (on ? (sort.dir === "asc" ? " ▲" : " ▼") : "");
+    });
+  }
+  sortBtns.forEach(function (b) {
     b.addEventListener("click", function () {
       var k = b.getAttribute("data-sort");
-      if (sort.key === k) sort.dir = sort.dir === "asc" ? "desc" : "asc";
-      else { sort.key = k; sort.dir = (k === "rating") ? "desc" : "asc"; }
-      document.querySelectorAll("th button[data-sort]").forEach(function (x) {
-        var on = x.getAttribute("data-sort") === sort.key;
-        x.setAttribute("aria-pressed", on ? "true" : "false");
-        var base = x.getAttribute("data-label") || x.textContent.replace(/[ ▲▼]+$/, "");
-        x.setAttribute("data-label", base);
-        x.textContent = base + (on ? (sort.dir === "asc" ? " ▲" : " ▼") : "");
-      });
-      render();
+      if (sort.key !== k) { sort.key = k; sort.dir = "asc"; }
+      else if (sort.dir === "asc") sort.dir = "desc";
+      else { sort.key = null; sort.dir = "asc"; }
+      paintSort(); render();
     });
   });
-  (function () {
-    var y = document.querySelector('th button[data-sort="year"]');
-    y.setAttribute("data-label", "연도"); y.textContent = "연도 ▲";
-  })();
 
   // ---------- 시작 ----------
   render();
