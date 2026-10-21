@@ -201,10 +201,9 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
     </div>
     <div class="actions">
       <span class="status" id="status">DB 연결 중</span>
-      <button class="btn" id="btnImport" type="button" hidden>일괄 가져오기</button>
+      <button class="btn" id="btnImport" type="button">일괄 가져오기</button>
       <button class="btn" id="btnExport" type="button" hidden>CSV 내보내기</button>
-      <button class="btn" id="btnAuth" type="button">Google 로그인</button>
-      <button class="btn primary" id="btnAdd" type="button" hidden>앨범 추가</button>
+      <button class="btn primary" id="btnAdd" type="button">앨범 추가</button>
     </div>
   </header>
 
@@ -289,7 +288,6 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -307,7 +305,7 @@ const firebaseConfig = {
   var PALETTE = ["#1f7a8c", "#b5651d", "#6a4c93", "#3a7d44", "#b23a48", "#4a6fa5", "#8a7a1f"];
 
   var $ = function (id) { return document.getElementById(id); };
-  var fs = null, auth = null, user = null, unsub = null;
+  var fs = null, unsub = null;
   var albums = [], loaded = false;
   var canWrite = true;
   var editingId = null, saving = false;
@@ -397,7 +395,6 @@ const firebaseConfig = {
     var tb = $("rows"); tb.textContent = "";
     var empty = $("empty");
     if (!loaded) { empty.hidden = false; empty.textContent = "앨범을 불러오는 중입니다."; return; }
-    if (!user) { empty.hidden = false; empty.textContent = "Google 계정으로 로그인하면 앨범 목록이 보입니다."; return; }
     if (list.length === 0) {
       empty.hidden = false;
       empty.textContent = albums.length === 0
@@ -474,7 +471,7 @@ const firebaseConfig = {
 
   function errText(e) {
     var c = e && e.code;
-    if (c === "permission-denied") return "저장 권한이 없습니다. Firestore 규칙에 등록한 계정으로 로그인했는지 확인하세요.";
+    if (c === "permission-denied") return "저장이 거부되었습니다. Firestore 규칙이 게시되었는지, 입력값이 규칙에 맞는지 확인하세요.";
     if (c === "resource-exhausted") return "Firestore 사용 한도에 도달했습니다.";
     if (c === "unavailable") return "네트워크 연결을 확인한 뒤 다시 시도하세요.";
     return "저장하지 못했습니다. 잠시 후 다시 시도하세요.";
@@ -482,7 +479,7 @@ const firebaseConfig = {
 
   async function onSave() {
     if (saving) return;
-    if (!fs || !user) { $("formMsg").textContent = "로그인한 뒤 저장할 수 있습니다."; return; }
+    if (!fs) { $("formMsg").textContent = "DB에 연결되지 않아 저장할 수 없습니다."; return; }
     var artist = $("fArtist").value.trim(), title = $("fTitle").value.trim();
     var yearRaw = $("fYear").value.trim(), year = parseInt(yearRaw, 10);
     if (!artist) { $("formMsg").textContent = "아티스트를 입력하세요."; $("fArtist").focus(); return; }
@@ -516,7 +513,7 @@ const firebaseConfig = {
   }
 
   async function onDelete(id) {
-    if (!fs || !user) return;
+    if (!fs) return;
     if (pendingDelete !== id) {
       pendingDelete = id;
       clearTimeout(pendingTimer);
@@ -602,7 +599,7 @@ const firebaseConfig = {
 
   async function runImport() {
     if (saving || !importRows.length) return;
-    if (!fs || !user) { $("iMsg").textContent = "로그인한 뒤 저장할 수 있습니다."; return; }
+    if (!fs) { $("iMsg").textContent = "DB에 연결되지 않아 저장할 수 없습니다."; return; }
     saving = true; $("btnImportSave").disabled = true; $("iMsg").textContent = "";
     var rows = importRows.slice(), done = 0, base = Date.now();
     try {
@@ -672,35 +669,15 @@ const firebaseConfig = {
     loaded = true; setStatus("firebaseConfig 값을 먼저 입력하세요", true); render(); return;
   }
   var app = initializeApp(firebaseConfig);
-  auth = getAuth(app); fs = getFirestore(app);
-
-  $("btnAuth").addEventListener("click", async function () {
-    try {
-      if (user) await signOut(auth);
-      else await signInWithPopup(auth, new GoogleAuthProvider());
-    } catch (e) { if (e && e.code !== "auth/popup-closed-by-user") setStatus("로그인하지 못했습니다.", true); }
-  });
-
-  onAuthStateChanged(auth, function (u) {
-    user = u;
-    if (unsub) { unsub(); unsub = null; }
-    albums = [];
-    if (!u) {
-      loaded = true; closeForm();
-      $("btnAuth").textContent = "Google 로그인"; $("btnAdd").hidden = true; $("btnImport").hidden = true; $("importPanel").hidden = true;
-      setStatus("로그아웃 상태"); render(); return;
-    }
-    loaded = false;
-    $("btnAuth").textContent = "로그아웃"; $("btnAdd").hidden = false; $("btnImport").hidden = false;
-    setStatus(u.email || "로그인됨"); render();
-    unsub = onSnapshot(collection(fs, "albums"), function (snap) {
-      albums = snap.docs.map(function (d) { var o = Object.assign({}, d.data()); o.id = d.id; return o; });
-      loaded = true; render();
-    }, function (e) {
-      loaded = true;
-      setStatus(e && e.code === "permission-denied" ? "이 계정은 접근 권한이 없습니다" : "DB 연결이 끊어졌습니다. 새로고침하세요.", true);
-      render();
-    });
+  fs = getFirestore(app);
+  setStatus("DB 연결 중");
+  unsub = onSnapshot(collection(fs, "albums"), function (snap) {
+    albums = snap.docs.map(function (d) { var o = Object.assign({}, d.data()); o.id = d.id; return o; });
+    loaded = true; setStatus("DB 연결됨"); render();
+  }, function (e) {
+    loaded = true;
+    setStatus(e && e.code === "permission-denied" ? "읽기가 거부되었습니다. Firestore 규칙을 확인하세요" : "DB 연결이 끊어졌습니다. 새로고침하세요.", true);
+    render();
   });
 })();
 </script>
