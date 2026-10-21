@@ -17,7 +17,7 @@
   --accent: #c27f00;
   --star: #d4900a;
   --star-off: #cfd5cf;
-  --pick-bg: #d9eefb;
+  --pick-bg: #eaf4fb;
   --danger: #a3352b;
   --track: #d6dcd6;
   --focus: #1f5f6b;
@@ -38,7 +38,7 @@
     --accent: #f0b13a;
     --star: #f0b13a;
     --star-off: #3a4649;
-    --pick-bg: #1c3647;
+    --pick-bg: #1a2e3a;
     --danger: #ec8478;
     --track: #2f3b3e;
     --focus: #5fb3c2;
@@ -56,7 +56,7 @@
   --accent: #f0b13a;
   --star: #f0b13a;
   --star-off: #3a4649;
-  --pick-bg: #1c3647;
+  --pick-bg: #1a2e3a;
   --danger: #ec8478;
   --track: #2f3b3e;
   --focus: #5fb3c2;
@@ -279,7 +279,14 @@ tbody tr:focus-visible { outline-offset: -2px; }
   <div class="toolbar">
     <input class="field search" id="q" type="search" placeholder="아티스트, 제목, 한줄평 검색" aria-label="검색">
     <select class="field" id="fltCat" aria-label="구분 필터"></select>
-    <select class="field" id="fltArtist" aria-label="아티스트 필터"></select>
+    <select class="field" id="fltRating" aria-label="별점 필터">
+      <option value="0">별점 전체</option>
+      <option value="5">★★★★★ 5개</option>
+      <option value="4">★★★★ 4개 이상</option>
+      <option value="3">★★★ 3개 이상</option>
+      <option value="2">★★ 2개 이상</option>
+      <option value="1">★ 1개 이상</option>
+    </select>
     <label class="check"><input type="checkbox" id="fltSig"> 대표앨범만</label>
   </div>
 
@@ -326,7 +333,7 @@ const firebaseConfig = {
   var editingId = null, saving = false;
   var sort = { key: "year", dir: "asc" };
   var delTimer = null;
-  var lastCatKey = "", lastArtistKey = "";
+  var lastCatKey = "", lastArtist = "";
 
   // 별점 선택지 0.5 ~ 5.0
   (function () {
@@ -350,10 +357,10 @@ const firebaseConfig = {
   // ---------- 목록 그리기 ----------
   function visible() {
     var q = $("q").value.trim().toLowerCase();
-    var cat = $("fltCat").value, art = $("fltArtist").value, sig = $("fltSig").checked;
+    var cat = $("fltCat").value, minR = parseFloat($("fltRating").value) || 0, sig = $("fltSig").checked;
     var list = albums.filter(function (a) {
       if (cat && a.category !== cat) return false;
-      if (art && a.artist !== art) return false;
+      if (minR && !(a.rating != null && a.rating >= minR)) return false;
       if (sig && !a.signature) return false;
       if (q) {
         var hay = ((a.artist || "") + " " + (a.title || "") + " " + (a.comment || "")).toLowerCase();
@@ -401,12 +408,10 @@ const firebaseConfig = {
   function td(cls) { var c = document.createElement("td"); c.className = cls; return c; }
 
   function render() {
-    var cats = {}, arts = {};
-    albums.forEach(function (a) { if (a.category) cats[a.category] = 1; if (a.artist) arts[a.artist] = 1; });
+    var cats = {};
+    albums.forEach(function (a) { if (a.category) cats[a.category] = 1; });
     var catList = Object.keys(cats).sort(function (x, y) { return x.localeCompare(y, "ko"); });
-    var artList = Object.keys(arts).sort(function (x, y) { return x.localeCompare(y, "ko"); });
     lastCatKey = fillSelect($("fltCat"), "구분 전체", catList, lastCatKey);
-    lastArtistKey = fillSelect($("fltArtist"), "아티스트 전체", artList, lastArtistKey);
 
     var dl = $("catList"); dl.textContent = "";
     DEFAULT_CATS.concat(catList.filter(function (c) { return DEFAULT_CATS.indexOf(c) < 0; })).forEach(function (c) {
@@ -498,7 +503,7 @@ const firebaseConfig = {
     $("fCat").value = a ? (a.category || "") : "";
     $("fRate").value = a ? (a.rating == null ? "" : String(a.rating)) : "4";
     $("fYear").value = a ? (a.year || "") : "";
-    $("fArtist").value = a ? (a.artist || "") : ($("fltArtist").value || "");
+    $("fArtist").value = a ? (a.artist || "") : lastArtist;
     $("fTitle").value = a ? (a.title || "") : "";
     $("fComment").value = a ? (a.comment || "") : "";
     $("fSig").checked = a ? !!a.signature : false;
@@ -547,6 +552,7 @@ const firebaseConfig = {
         data.createdAt = Date.now();
         await addDoc(collection(fs, "albums"), data);
       }
+      lastArtist = data.artist;
       closeForm();
     } catch (e) {
       $("formMsg").textContent = errText(e);
@@ -692,7 +698,7 @@ const firebaseConfig = {
   $("btnSave").addEventListener("click", onSave);
   $("btnDelete").addEventListener("click", onDeleteClick);
   $("btnExport").addEventListener("click", exportCsv);
-  ["q", "fltCat", "fltArtist", "fltSig"].forEach(function (id) {
+  ["q", "fltCat", "fltRating", "fltSig"].forEach(function (id) {
     $(id).addEventListener("input", render);
     $(id).addEventListener("change", render);
   });
