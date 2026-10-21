@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>음반 DB</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #e9ece6;
+  --surface: #f8f9f6;
+  --ink: #1b2a2f;
+  --muted: #5c696c;
+  --line: #c9d0ca;
+  --primary: #1f5f6b;
+  --primary-ink: #ffffff;
+  --accent: #c27f00;
+  --danger: #a3352b;
+  --track: #d6dcd6;
+  --focus: #1f5f6b;
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #13191b;
+    --surface: #1b2326;
+    --ink: #e4ebe8;
+    --muted: #9aa8aa;
+    --line: #2f3b3e;
+    --primary: #5fb3c2;
+    --primary-ink: #0d1517;
+    --accent: #f0b13a;
+    --danger: #ec8478;
+    --track: #2f3b3e;
+    --focus: #5fb3c2;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #13191b;
+  --surface: #1b2326;
+  --ink: #e4ebe8;
+  --muted: #9aa8aa;
+  --line: #2f3b3e;
+  --primary: #5fb3c2;
+  --primary-ink: #0d1517;
+  --accent: #f0b13a;
+  --danger: #ec8478;
+  --track: #2f3b3e;
+  --focus: #5fb3c2;
+  color-scheme: dark;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 56px; }
+header.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+h1 {
+  margin: 0;
+  font-family: "Noto Serif KR", "Batang", serif;
+  font-weight: 700;
+  font-size: 34px;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.stats { display: flex; gap: 18px; color: var(--muted); font-size: 14px; margin-top: 6px; flex-wrap: wrap; }
+.stats b { color: var(--ink); font-weight: 700; }
+.status { font-size: 13px; color: var(--muted); }
+.status.err { color: var(--danger); }
+
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 8px 14px;
+  min-height: 38px;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); font-weight: 700; }
+.btn.danger { color: var(--danger); border-color: var(--danger); }
+.btn.small { padding: 4px 10px; min-height: 30px; font-size: 13px; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) repeat(2, minmax(120px, 1fr)) auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.field {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 8px 10px;
+  min-height: 38px;
+  width: 100%;
+}
+.check { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--muted); }
+.check input { width: 16px; height: 16px; accent-color: var(--primary); }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+.panel[hidden] { display: none; }
+.panel h2 { margin: 0 0 14px; font-size: 17px; font-family: "Noto Serif KR", serif; }
+.form-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
+.form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.c-3 { grid-column: span 3; } .c-2 { grid-column: span 2; } .c-4 { grid-column: span 4; } .c-6 { grid-column: span 6; } .c-12 { grid-column: span 12; }
+.form-foot { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+.msg { color: var(--danger); font-size: 13px; }
+
+.table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 760px; }
+th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+th { font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+th button { background: none; border: 0; padding: 0; color: inherit; font-weight: inherit; display: inline-flex; gap: 4px; align-items: center; }
+th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
+.col-cat { width: 110px; } .col-rate { width: 120px; } .col-year { width: 74px; } .col-act { width: 120px; }
+
+.cat { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+.cat i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.rate { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.rate .n { font-weight: 700; min-width: 2.2em; }
+.rate .sig { color: var(--accent); font-size: 17px; line-height: 1; }
+.meter { height: 4px; width: 46px; background: var(--track); border-radius: 2px; overflow: hidden; margin-top: 7px; }
+.meter span { display: block; height: 100%; background: var(--primary); }
+.year { font-variant-numeric: tabular-nums; }
+.artist { font-size: 13px; color: var(--muted); }
+.album { font-family: "Noto Serif KR", "Batang", serif; font-weight: 700; font-size: 16px; line-height: 1.35; }
+.comment { color: var(--ink); }
+.row-act { display: flex; gap: 6px; justify-content: flex-end; }
+
+.empty { padding: 44px 20px; text-align: center; color: var(--muted); }
+
+@media (max-width: 760px) {
+  .wrap { padding: 20px 14px 44px; }
+  h1 { font-size: 28px; }
+  .toolbar { grid-template-columns: 1fr 1fr; }
+  .toolbar .search { grid-column: span 2; }
+  .form-grid .c-3, .form-grid .c-2, .form-grid .c-4, .form-grid .c-6 { grid-column: span 12; }
+  .form-grid .half { grid-column: span 6; }
+  table { min-width: 0; }
+  thead { display: none; }
+  tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "cat rate" "title title" "comment comment" "act act";
+    gap: 6px 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  tbody tr:last-child { border-bottom: 0; }
+  td { display: block; padding: 0; border: 0; }
+  td.t-cat { grid-area: cat; align-self: center; }
+  td.t-rate { grid-area: rate; }
+  td.t-year { grid-area: cat; justify-self: end; display: none; }
+  td.t-title { grid-area: title; }
+  td.t-comment { grid-area: comment; }
+  td.t-act { grid-area: act; }
+  .year-inline { display: inline; }
+}
+.year-inline { display: none; color: var(--muted); font-size: 13px; margin-left: 8px; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>음반 DB</h1>
+      <div class="stats" aria-live="polite">
+        <span>전체 <b id="stTotal">0</b>장</span>
+        <span>대표앨범 <b id="stSig">0</b>장</span>
+        <span>보이는 앨범 <b id="stShown">0</b>장</span>
+      </div>
+    </div>
+    <div class="actions">
+      <span class="status" id="status">DB 연결 중</span>
+      <button class="btn" id="btnExport" type="button" hidden>CSV 내보내기</button>
+      <button class="btn" id="btnAuth" type="button">Google 로그인</button>
+      <button class="btn primary" id="btnAdd" type="button" hidden>앨범 추가</button>
+    </div>
+  </header>
+
+  <section class="panel" id="formPanel" hidden aria-labelledby="formTitle">
+    <h2 id="formTitle">앨범 추가</h2>
+    <div class="form-grid">
+      <label class="c-3 half">구분
+        <input class="field" id="fCat" list="catList" placeholder="솔로, 그룹, 라이브 등" maxlength="30">
+        <datalist id="catList"></datalist>
+      </label>
+      <label class="c-2 half">별점 (5점 만점)
+        <select class="field" id="fRate"></select>
+      </label>
+      <label class="c-2 half">연도
+        <input class="field" id="fYear" type="number" min="1900" max="2100" inputmode="numeric" placeholder="1975">
+      </label>
+      <label class="c-3 half" style="justify-content:flex-end">
+        <span class="check" style="padding-bottom:8px"><input type="checkbox" id="fSig"> 대표앨범으로 표시</span>
+      </label>
+      <label class="c-4">아티스트
+        <input class="field" id="fArtist" maxlength="80">
+      </label>
+      <label class="c-4">앨범 제목
+        <input class="field" id="fTitle" maxlength="120">
+      </label>
+      <label class="c-4">한줄평
+        <input class="field" id="fComment" maxlength="200">
+      </label>
+    </div>
+    <div class="form-foot">
+      <button class="btn primary" id="btnSave" type="button">저장</button>
+      <button class="btn" id="btnCancel" type="button">취소</button>
+      <span class="msg" id="formMsg" role="alert"></span>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <input class="field search" id="q" type="search" placeholder="아티스트, 제목, 한줄평 검색" aria-label="검색">
+    <select class="field" id="fltCat" aria-label="구분 필터"></select>
+    <select class="field" id="fltArtist" aria-label="아티스트 필터"></select>
+    <label class="check"><input type="checkbox" id="fltSig"> 대표앨범만</label>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-cat"><button type="button" data-sort="category" aria-pressed="false">구분</button></th>
+          <th class="col-rate"><button type="button" data-sort="rating" aria-pressed="false">별점</button></th>
+          <th class="col-year"><button type="button" data-sort="year" aria-pressed="true">연도</button></th>
+          <th><button type="button" data-sort="title" aria-pressed="false">제목</button></th>
+          <th>한줄평</th>
+          <th class="col-act"><span class="sr" style="position:absolute;left:-9999px">관리</span></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDVFY0a9gzaqkJENaSmSfgaDx342iInJmU",
+  authDomain: "album-db-e978e.firebaseapp.com",
+  projectId: "album-db-e978e",
+  storageBucket: "album-db-e978e.firebasestorage.app",
+  messagingSenderId: "679432111393",
+  appId: "1:679432111393:web:d7daff92e9229f29f42a60"
+};
+
+(function () {
+  "use strict";
+  var DEFAULT_CATS = ["솔로", "그룹", "라이브", "컴필레이션", "OST"];
+  var PALETTE = ["#1f7a8c", "#b5651d", "#6a4c93", "#3a7d44", "#b23a48", "#4a6fa5", "#8a7a1f"];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var fs = null, auth = null, user = null, unsub = null;
+  var albums = [], loaded = false;
+  var canWrite = true;
+  var editingId = null, saving = false;
+  var sort = { key: "year", dir: "asc" };
+  var pendingDelete = null, pendingTimer = null;
+  var lastCatKey = "", lastArtistKey = "";
+
+  // 별점 선택지 0.5 ~ 5.0
+  (function () {
+    var sel = $("fRate");
+    for (var v = 5; v >= 0.5; v -= 0.5) {
+      var o = document.createElement("option");
+      o.value = String(v); o.textContent = fmtRate(v);
+      sel.appendChild(o);
+    }
+    sel.value = "4";
+  })();
+
+  function fmtRate(n) { return (Math.round(n * 2) % 2 === 0) ? String(Math.round(n)) : n.toFixed(1); }
+  function catColor(c) {
+    var h = 0; for (var i = 0; i < c.length; i++) h = (h * 31 + c.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  }
+  function setStatus(t, err) { var s = $("status"); s.textContent = t; s.className = "status" + (err ? " err" : ""); }
+
+  // ---------- 목록 그리기 ----------
+  function visible() {
+    var q = $("q").value.trim().toLowerCase();
+    var cat = $("fltCat").value, art = $("fltArtist").value, sig = $("fltSig").checked;
+    var list = albums.filter(function (a) {
+      if (cat && a.category !== cat) return false;
+      if (art && a.artist !== art) return false;
+      if (sig && !a.signature) return false;
+      if (q) {
+        var hay = ((a.artist || "") + " " + (a.title || "") + " " + (a.comment || "")).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    var k = sort.key, d = sort.dir === "asc" ? 1 : -1;
+    function cmpStr(x, y) { return String(x || "").localeCompare(String(y || ""), "ko"); }
+    list.sort(function (a, b) {
+      var r = 0;
+      if (k === "rating") r = (a.rating || 0) - (b.rating || 0);
+      else if (k === "year") r = (a.year || 0) - (b.year || 0);
+      else if (k === "category") r = cmpStr(a.category, b.category);
+      else if (k === "title") r = cmpStr(a.artist, b.artist) || cmpStr(a.title, b.title);
+      if (r !== 0) return r * d;
+      return ((a.year || 0) - (b.year || 0)) || cmpStr(a.title, b.title);
+    });
+    return list;
+  }
+
+  function fillSelect(sel, firstLabel, values, key, setKey) {
+    var joined = values.join("\u0001");
+    if (joined === key) return key;
+    var cur = sel.value;
+    sel.textContent = "";
+    var o0 = document.createElement("option"); o0.value = ""; o0.textContent = firstLabel; sel.appendChild(o0);
+    values.forEach(function (v) { var o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); });
+    sel.value = values.indexOf(cur) >= 0 ? cur : "";
+    return joined;
+  }
+
+  function td(cls) { var c = document.createElement("td"); c.className = cls; return c; }
+
+  function render() {
+    var cats = {}, arts = {};
+    albums.forEach(function (a) { if (a.category) cats[a.category] = 1; if (a.artist) arts[a.artist] = 1; });
+    var catList = Object.keys(cats).sort(function (x, y) { return x.localeCompare(y, "ko"); });
+    var artList = Object.keys(arts).sort(function (x, y) { return x.localeCompare(y, "ko"); });
+    lastCatKey = fillSelect($("fltCat"), "구분 전체", catList, lastCatKey);
+    lastArtistKey = fillSelect($("fltArtist"), "아티스트 전체", artList, lastArtistKey);
+
+    var dl = $("catList"); dl.textContent = "";
+    DEFAULT_CATS.concat(catList.filter(function (c) { return DEFAULT_CATS.indexOf(c) < 0; })).forEach(function (c) {
+      var o = document.createElement("option"); o.value = c; dl.appendChild(o);
+    });
+
+    var list = visible();
+    $("stTotal").textContent = albums.length;
+    $("stSig").textContent = albums.filter(function (a) { return a.signature; }).length;
+    $("stShown").textContent = list.length;
+    $("btnExport").hidden = albums.length === 0;
+
+    var tb = $("rows"); tb.textContent = "";
+    var empty = $("empty");
+    if (!loaded) { empty.hidden = false; empty.textContent = "앨범을 불러오는 중입니다."; return; }
+    if (!user) { empty.hidden = false; empty.textContent = "Google 계정으로 로그인하면 앨범 목록이 보입니다."; return; }
+    if (list.length === 0) {
+      empty.hidden = false;
+      empty.textContent = albums.length === 0
+        ? (canWrite ? "아직 등록된 앨범이 없습니다. 위의 ‘앨범 추가’로 첫 앨범을 등록하세요." : "등록된 앨범이 없습니다.")
+        : "조건에 맞는 앨범이 없습니다. 검색어나 필터를 바꿔 보세요.";
+      return;
+    }
+    empty.hidden = true;
+
+    list.forEach(function (a) {
+      var tr = document.createElement("tr");
+
+      var c1 = td("t-cat");
+      var cat = document.createElement("span"); cat.className = "cat";
+      var dot = document.createElement("i"); dot.style.background = catColor(a.category || "");
+      cat.appendChild(dot); cat.appendChild(document.createTextNode(a.category || "-"));
+      c1.appendChild(cat);
+
+      var c2 = td("t-rate");
+      var rate = document.createElement("div"); rate.className = "rate";
+      var n = document.createElement("span"); n.className = "n"; n.textContent = fmtRate(a.rating || 0);
+      rate.appendChild(n);
+      if (a.signature) { var s = document.createElement("span"); s.className = "sig"; s.textContent = "★"; s.title = "대표앨범"; s.setAttribute("aria-label", "대표앨범"); rate.appendChild(s); }
+      c2.appendChild(rate);
+      var m = document.createElement("div"); m.className = "meter";
+      var ms = document.createElement("span"); ms.style.width = Math.max(0, Math.min(100, (a.rating || 0) / 5 * 100)) + "%";
+      m.appendChild(ms); c2.appendChild(m);
+
+      var c3 = td("t-year"); c3.className = "t-year year"; c3.textContent = a.year || "";
+
+      var c4 = td("t-title");
+      var ar = document.createElement("div"); ar.className = "artist"; ar.textContent = a.artist || "";
+      var yi = document.createElement("span"); yi.className = "year-inline"; yi.textContent = a.year || "";
+      ar.appendChild(yi);
+      var al = document.createElement("div"); al.className = "album"; al.textContent = a.title || "";
+      c4.appendChild(ar); c4.appendChild(al);
+
+      var c5 = td("t-comment comment"); c5.textContent = a.comment || "";
+
+      var c6 = td("t-act");
+      if (canWrite) {
+        var box = document.createElement("div"); box.className = "row-act";
+        var be = document.createElement("button"); be.type = "button"; be.className = "btn small"; be.textContent = "수정";
+        be.addEventListener("click", function () { openForm(a); });
+        var bd = document.createElement("button"); bd.type = "button"; bd.className = "btn small danger";
+        bd.textContent = pendingDelete === a.id ? "삭제 확인" : "삭제";
+        bd.addEventListener("click", function () { onDelete(a.id); });
+        box.appendChild(be); box.appendChild(bd); c6.appendChild(box);
+      }
+
+      [c1, c2, c3, c4, c5, c6].forEach(function (c) { tr.appendChild(c); });
+      tb.appendChild(tr);
+    });
+  }
+
+  // ---------- 폼 ----------
+  function openForm(a) {
+    editingId = a ? a.id : null;
+    $("formTitle").textContent = a ? "앨범 수정" : "앨범 추가";
+    $("fCat").value = a ? (a.category || "") : "";
+    $("fRate").value = a ? String(a.rating) : "4";
+    $("fYear").value = a ? (a.year || "") : "";
+    $("fArtist").value = a ? (a.artist || "") : ($("fltArtist").value || "");
+    $("fTitle").value = a ? (a.title || "") : "";
+    $("fComment").value = a ? (a.comment || "") : "";
+    $("fSig").checked = a ? !!a.signature : false;
+    $("formMsg").textContent = "";
+    $("formPanel").hidden = false;
+    $("formPanel").scrollIntoView({ block: "nearest" });
+    $("fCat").focus();
+  }
+  function closeForm() { $("formPanel").hidden = true; editingId = null; $("formMsg").textContent = ""; }
+
+  function errText(e) {
+    var c = e && e.code;
+    if (c === "permission-denied") return "저장 권한이 없습니다. Firestore 규칙에 등록한 계정으로 로그인했는지 확인하세요.";
+    if (c === "resource-exhausted") return "Firestore 사용 한도에 도달했습니다.";
+    if (c === "unavailable") return "네트워크 연결을 확인한 뒤 다시 시도하세요.";
+    return "저장하지 못했습니다. 잠시 후 다시 시도하세요.";
+  }
+
+  async function onSave() {
+    if (saving) return;
+    if (!fs || !user) { $("formMsg").textContent = "로그인한 뒤 저장할 수 있습니다."; return; }
+    var artist = $("fArtist").value.trim(), title = $("fTitle").value.trim();
+    var yearRaw = $("fYear").value.trim(), year = parseInt(yearRaw, 10);
+    if (!artist) { $("formMsg").textContent = "아티스트를 입력하세요."; $("fArtist").focus(); return; }
+    if (!title) { $("formMsg").textContent = "앨범 제목을 입력하세요."; $("fTitle").focus(); return; }
+    if (!yearRaw || isNaN(year) || year < 1900 || year > 2100) { $("formMsg").textContent = "연도를 1900~2100 사이 숫자로 입력하세요."; $("fYear").focus(); return; }
+    var data = {
+      category: $("fCat").value.trim() || "기타",
+      rating: parseFloat($("fRate").value),
+      year: year,
+      artist: artist,
+      title: title,
+      comment: $("fComment").value.trim(),
+      signature: $("fSig").checked
+    };
+    saving = true; $("btnSave").disabled = true; $("formMsg").textContent = "";
+    try {
+      if (editingId) {
+        var prev = albums.filter(function (x) { return x.id === editingId; })[0];
+        if (prev && prev.createdAt) data.createdAt = prev.createdAt;
+        await setDoc(doc(fs, "albums", editingId), data);
+      } else {
+        data.createdAt = Date.now();
+        await addDoc(collection(fs, "albums"), data);
+      }
+      closeForm();
+    } catch (e) {
+      $("formMsg").textContent = errText(e);
+    } finally {
+      saving = false; $("btnSave").disabled = false;
+    }
+  }
+
+  async function onDelete(id) {
+    if (!fs || !user) return;
+    if (pendingDelete !== id) {
+      pendingDelete = id;
+      clearTimeout(pendingTimer);
+      pendingTimer = setTimeout(function () { pendingDelete = null; render(); }, 3000);
+      render();
+      return;
+    }
+    clearTimeout(pendingTimer); pendingDelete = null;
+    try { await deleteDoc(doc(fs, "albums", id)); }
+    catch (e) { setStatus("삭제하지 못했습니다. 다시 시도하세요.", true); }
+  }
+
+  // ---------- CSV ----------
+  function csvCell(v) { var s = String(v == null ? "" : v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  async function exportCsv() {
+    var rows = [["구분", "별점", "대표앨범", "연도", "아티스트", "제목", "한줄평"]];
+    visible().forEach(function (a) {
+      rows.push([a.category, a.rating, a.signature ? "★" : "", a.year, a.artist, a.title, a.comment]);
+    });
+    var text = "\ufeff" + rows.map(function (r) { return r.map(csvCell).join(","); }).join("\r\n");
+    var blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "음반DB.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  // ---------- 이벤트 ----------
+  $("btnAdd").addEventListener("click", function () { openForm(null); });
+  $("btnCancel").addEventListener("click", closeForm);
+  $("btnSave").addEventListener("click", onSave);
+  $("btnExport").addEventListener("click", exportCsv);
+  ["q", "fltCat", "fltArtist", "fltSig"].forEach(function (id) {
+    $(id).addEventListener("input", render);
+    $(id).addEventListener("change", render);
+  });
+  ["fCat", "fYear", "fArtist", "fTitle", "fComment"].forEach(function (id) {
+    $(id).addEventListener("keydown", function (e) { if (e.key === "Enter") onSave(); });
+  });
+  document.querySelectorAll("th button[data-sort]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var k = b.getAttribute("data-sort");
+      if (sort.key === k) sort.dir = sort.dir === "asc" ? "desc" : "asc";
+      else { sort.key = k; sort.dir = (k === "rating") ? "desc" : "asc"; }
+      document.querySelectorAll("th button[data-sort]").forEach(function (x) {
+        var on = x.getAttribute("data-sort") === sort.key;
+        x.setAttribute("aria-pressed", on ? "true" : "false");
+        var base = x.getAttribute("data-label") || x.textContent.replace(/[ ▲▼]+$/, "");
+        x.setAttribute("data-label", base);
+        x.textContent = base + (on ? (sort.dir === "asc" ? " ▲" : " ▼") : "");
+      });
+      render();
+    });
+  });
+  (function () {
+    var y = document.querySelector('th button[data-sort="year"]');
+    y.setAttribute("data-label", "연도"); y.textContent = "연도 ▲";
+  })();
+
+  // ---------- 시작 ----------
+  render();
+  if (firebaseConfig.apiKey.indexOf("YOUR_") === 0) {
+    loaded = true; setStatus("firebaseConfig 값을 먼저 입력하세요", true); render(); return;
+  }
+  var app = initializeApp(firebaseConfig);
+  auth = getAuth(app); fs = getFirestore(app);
+
+  $("btnAuth").addEventListener("click", async function () {
+    try {
+      if (user) await signOut(auth);
+      else await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (e) { if (e && e.code !== "auth/popup-closed-by-user") setStatus("로그인하지 못했습니다.", true); }
+  });
+
+  onAuthStateChanged(auth, function (u) {
+    user = u;
+    if (unsub) { unsub(); unsub = null; }
+    albums = [];
+    if (!u) {
+      loaded = true; closeForm();
+      $("btnAuth").textContent = "Google 로그인"; $("btnAdd").hidden = true;
+      setStatus("로그아웃 상태"); render(); return;
+    }
+    loaded = false;
+    $("btnAuth").textContent = "로그아웃"; $("btnAdd").hidden = false;
+    setStatus(u.email || "로그인됨"); render();
+    unsub = onSnapshot(collection(fs, "albums"), function (snap) {
+      albums = snap.docs.map(function (d) { var o = Object.assign({}, d.data()); o.id = d.id; return o; });
+      loaded = true; render();
+    }, function (e) {
+      loaded = true;
+      setStatus(e && e.code === "permission-denied" ? "이 계정은 접근 권한이 없습니다" : "DB 연결이 끊어졌습니다. 새로고침하세요.", true);
+      render();
+    });
+  });
+})();
+</script>
+</body>
+</html>
