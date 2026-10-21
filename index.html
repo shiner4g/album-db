@@ -17,6 +17,7 @@
   --accent: #c27f00;
   --star: #d4900a;
   --star-off: #cfd5cf;
+  --pick-bg: #d9eefb;
   --danger: #a3352b;
   --track: #d6dcd6;
   --focus: #1f5f6b;
@@ -37,6 +38,7 @@
     --accent: #f0b13a;
     --star: #f0b13a;
     --star-off: #3a4649;
+    --pick-bg: #1c3647;
     --danger: #ec8478;
     --track: #2f3b3e;
     --focus: #5fb3c2;
@@ -54,6 +56,7 @@
   --accent: #f0b13a;
   --star: #f0b13a;
   --star-off: #3a4649;
+  --pick-bg: #1c3647;
   --danger: #ec8478;
   --track: #2f3b3e;
   --focus: #5fb3c2;
@@ -145,7 +148,7 @@ tbody tr:last-child td { border-bottom: 0; }
 th { font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
 th button { background: none; border: 0; padding: 0; color: inherit; font-weight: inherit; display: inline-flex; gap: 4px; align-items: center; }
 th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
-.col-cat { width: 110px; } .col-rate { width: 150px; } .col-year { width: 74px; } .col-act { width: 120px; }
+.col-year { width: 74px; } .col-rate { width: 170px; } .col-cat { width: 110px; }
 
 .cat { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
 .cat i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
@@ -160,12 +163,18 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
   }
 }
 .rate .none { color: var(--muted); }
-.rate .chk { color: var(--primary); font-weight: 700; font-size: 17px; line-height: 1; }
+.chk-slot { display: inline-block; width: 18px; text-align: center; color: var(--primary); font-weight: 700; font-size: 17px; line-height: 1; flex: none; }
 .year { font-variant-numeric: tabular-nums; }
 .artist { font-size: 13px; color: var(--muted); }
 .album { font-family: "Noto Serif KR", "Batang", serif; font-weight: 700; font-size: 16px; line-height: 1.35; }
 .comment { color: var(--ink); }
-.row-act { display: flex; gap: 6px; justify-content: flex-end; }
+tbody tr.pick { background: var(--pick-bg); }
+tbody tr:focus-visible { outline-offset: -2px; }
+@media (pointer: coarse) {
+  tbody tr { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+}
+.hint { margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
+.btn.danger.armed { background: var(--danger); border-color: var(--danger); color: var(--surface); }
 
 .empty { padding: 44px 20px; text-align: center; color: var(--muted); }
 
@@ -180,23 +189,20 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
   thead { display: none; }
   tbody tr {
     display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas: "cat rate" "title title" "comment comment" "act act";
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "title title rate" "year cat cat" "comment comment comment";
     gap: 6px 10px;
     padding: 12px 14px;
     border-bottom: 1px solid var(--line);
   }
   tbody tr:last-child { border-bottom: 0; }
   td { display: block; padding: 0; border: 0; }
+  td.t-year { grid-area: year; align-self: center; color: var(--muted); }
   td.t-cat { grid-area: cat; align-self: center; }
   td.t-rate { grid-area: rate; }
-  td.t-year { grid-area: cat; justify-self: end; display: none; }
   td.t-title { grid-area: title; }
   td.t-comment { grid-area: comment; }
-  td.t-act { grid-area: act; }
-  .year-inline { display: inline; }
 }
-.year-inline { display: none; color: var(--muted); font-size: 13px; margin-left: 8px; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -208,8 +214,8 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
       <span class="status" id="status"></span>
       <div class="actions" id="actionGroup" hidden>
         <button class="btn primary" id="btnAdd" type="button">앨범 추가</button>
-        <button class="btn" id="btnImport" type="button">일괄 가져오기</button>
-        <button class="btn" id="btnExport" type="button" hidden>CSV 내보내기</button>
+        <button class="btn" id="btnImport" type="button">가져오기</button>
+        <button class="btn" id="btnExport" type="button" hidden>내보내기</button>
       </div>
       <button class="btn" id="btnMenu" type="button" aria-expanded="false" aria-controls="actionGroup">펼치기 ▾</button>
     </div>
@@ -244,12 +250,13 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
     <div class="form-foot">
       <button class="btn primary" id="btnSave" type="button">저장</button>
       <button class="btn" id="btnCancel" type="button">취소</button>
+      <button class="btn danger" id="btnDelete" type="button" hidden>삭제</button>
       <span class="msg" id="formMsg" role="alert"></span>
     </div>
   </section>
 
   <section class="panel" id="importPanel" hidden aria-labelledby="importTitle">
-    <h2 id="importTitle">일괄 가져오기</h2>
+    <h2 id="importTitle">가져오기</h2>
     <div class="form-grid">
       <label class="c-4">아티스트 (모든 줄에 적용)
         <input class="field" id="iArtist" maxlength="80" placeholder="예: Pat Metheny">
@@ -280,18 +287,18 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
     <table>
       <thead>
         <tr>
-          <th class="col-cat"><button type="button" data-sort="category" aria-pressed="false">구분</button></th>
-          <th class="col-rate"><button type="button" data-sort="rating" aria-pressed="false">별점</button></th>
           <th class="col-year"><button type="button" data-sort="year" aria-pressed="true">연도</button></th>
           <th><button type="button" data-sort="title" aria-pressed="false">제목</button></th>
+          <th class="col-rate"><button type="button" data-sort="rating" aria-pressed="false">별점</button></th>
+          <th class="col-cat"><button type="button" data-sort="category" aria-pressed="false">구분</button></th>
           <th>한줄평</th>
-          <th class="col-act"><span class="sr" style="position:absolute;left:-9999px">관리</span></th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>
     <div class="empty" id="empty" hidden></div>
   </div>
+  <p class="hint">앨범을 길게 누르면 수정 창이 열립니다.</p>
 </div>
 
 <script type="module">
@@ -318,7 +325,7 @@ const firebaseConfig = {
   var canWrite = true;
   var editingId = null, saving = false;
   var sort = { key: "year", dir: "asc" };
-  var pendingDelete = null, pendingTimer = null;
+  var delTimer = null;
   var lastCatKey = "", lastArtistKey = "";
 
   // 별점 선택지 0.5 ~ 5.0
@@ -423,48 +430,64 @@ const firebaseConfig = {
 
     list.forEach(function (a) {
       var tr = document.createElement("tr");
+      if (a.signature) tr.className = "pick";
+      tr.tabIndex = 0;
 
-      var c1 = td("t-cat");
-      var cat = document.createElement("span"); cat.className = "cat";
-      var dot = document.createElement("i"); dot.style.background = catColor(a.category || "");
-      cat.appendChild(dot); cat.appendChild(document.createTextNode(a.category || "-"));
-      c1.appendChild(cat);
+      var cYear = td("t-year year"); cYear.textContent = a.year || "";
 
-      var c2 = td("t-rate");
+      var cTitle = td("t-title");
+      var ar = document.createElement("div"); ar.className = "artist"; ar.textContent = a.artist || "";
+      var al = document.createElement("div"); al.className = "album"; al.textContent = a.title || "";
+      cTitle.appendChild(ar); cTitle.appendChild(al);
+
+      var cRate = td("t-rate");
       var rate = document.createElement("div"); rate.className = "rate";
+      var slot = document.createElement("span"); slot.className = "chk-slot";
+      if (a.signature) { slot.textContent = "✓"; slot.title = "대표앨범"; slot.setAttribute("aria-label", "대표앨범"); }
+      else slot.setAttribute("aria-hidden", "true");
+      rate.appendChild(slot);
       if (a.rating == null) {
         var none = document.createElement("span"); none.className = "none"; none.textContent = "-"; none.title = "평가 보류";
         rate.appendChild(none);
       } else {
         rate.appendChild(starsEl(a.rating));
       }
-      if (a.signature) { var ck = document.createElement("span"); ck.className = "chk"; ck.textContent = "✓"; ck.title = "대표앨범"; ck.setAttribute("aria-label", "대표앨범"); rate.appendChild(ck); }
-      c2.appendChild(rate);
+      cRate.appendChild(rate);
 
-      var c3 = td("t-year"); c3.className = "t-year year"; c3.textContent = a.year || "";
+      var cCat = td("t-cat");
+      var cat = document.createElement("span"); cat.className = "cat";
+      var dot = document.createElement("i"); dot.style.background = catColor(a.category || "");
+      cat.appendChild(dot); cat.appendChild(document.createTextNode(a.category || "-"));
+      cCat.appendChild(cat);
 
-      var c4 = td("t-title");
-      var ar = document.createElement("div"); ar.className = "artist"; ar.textContent = a.artist || "";
-      var yi = document.createElement("span"); yi.className = "year-inline"; yi.textContent = a.year || "";
-      ar.appendChild(yi);
-      var al = document.createElement("div"); al.className = "album"; al.textContent = a.title || "";
-      c4.appendChild(ar); c4.appendChild(al);
+      var cCom = td("t-comment comment"); cCom.textContent = a.comment || "";
 
-      var c5 = td("t-comment comment"); c5.textContent = a.comment || "";
-
-      var c6 = td("t-act");
-      if (canWrite) {
-        var box = document.createElement("div"); box.className = "row-act";
-        var be = document.createElement("button"); be.type = "button"; be.className = "btn small"; be.textContent = "수정";
-        be.addEventListener("click", function () { openForm(a); });
-        var bd = document.createElement("button"); bd.type = "button"; bd.className = "btn small danger";
-        bd.textContent = pendingDelete === a.id ? "삭제 확인" : "삭제";
-        bd.addEventListener("click", function () { onDelete(a.id); });
-        box.appendChild(be); box.appendChild(bd); c6.appendChild(box);
-      }
-
-      [c1, c2, c3, c4, c5, c6].forEach(function (c) { tr.appendChild(c); });
+      [cYear, cTitle, cRate, cCat, cCom].forEach(function (c) { tr.appendChild(c); });
+      attachLongPress(tr, a);
       tb.appendChild(tr);
+    });
+  }
+
+  // 길게 누르면(0.55초) 수정 창 열기. 스크롤 중이거나 손가락이 움직이면 취소.
+  function attachLongPress(tr, a) {
+    var timer = null, sx = 0, sy = 0, fired = false;
+    function cancel() { clearTimeout(timer); timer = null; }
+    tr.addEventListener("pointerdown", function (e) {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      fired = false; sx = e.clientX; sy = e.clientY; cancel();
+      timer = setTimeout(function () {
+        timer = null; fired = true;
+        if (navigator.vibrate) { try { navigator.vibrate(15); } catch (x) {} }
+        openForm(a);
+      }, 550);
+    });
+    tr.addEventListener("pointermove", function (e) {
+      if (timer && (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10)) cancel();
+    });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(function (n) { tr.addEventListener(n, cancel); });
+    tr.addEventListener("contextmenu", function (e) { if (fired || timer) e.preventDefault(); });
+    tr.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && e.target === tr) { e.preventDefault(); openForm(a); }
     });
   }
 
@@ -480,12 +503,14 @@ const firebaseConfig = {
     $("fComment").value = a ? (a.comment || "") : "";
     $("fSig").checked = a ? !!a.signature : false;
     $("formMsg").textContent = "";
+    $("btnDelete").hidden = !a; resetDeleteBtn();
     $("importPanel").hidden = true;
     $("formPanel").hidden = false;
-    $("formPanel").scrollIntoView({ block: "nearest" });
-    $("fCat").focus();
+    $("formPanel").scrollIntoView({ block: "start" });
+    // 터치 기기에서는 키보드가 바로 뜨지 않도록 자동 포커스를 생략
+    if (!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches)) $("fCat").focus();
   }
-  function closeForm() { $("formPanel").hidden = true; editingId = null; $("formMsg").textContent = ""; }
+  function closeForm() { $("formPanel").hidden = true; editingId = null; $("formMsg").textContent = ""; resetDeleteBtn(); }
 
   function errText(e) {
     var c = e && e.code;
@@ -530,18 +555,24 @@ const firebaseConfig = {
     }
   }
 
-  async function onDelete(id) {
-    if (!fs) return;
-    if (pendingDelete !== id) {
-      pendingDelete = id;
-      clearTimeout(pendingTimer);
-      pendingTimer = setTimeout(function () { pendingDelete = null; render(); }, 3000);
-      render();
+  function resetDeleteBtn() {
+    clearTimeout(delTimer);
+    var b = $("btnDelete"); b.textContent = "삭제"; b.classList.remove("armed");
+  }
+  // 삭제는 두 번 눌러야 실행됩니다 (실수 방지)
+  async function onDeleteClick() {
+    if (!fs || !editingId || saving) return;
+    var b = $("btnDelete");
+    if (!b.classList.contains("armed")) {
+      b.classList.add("armed"); b.textContent = "삭제 확인";
+      clearTimeout(delTimer); delTimer = setTimeout(resetDeleteBtn, 3000);
       return;
     }
-    clearTimeout(pendingTimer); pendingDelete = null;
-    try { await deleteDoc(doc(fs, "albums", id)); }
-    catch (e) { setStatus("삭제하지 못했습니다. 다시 시도하세요.", true); }
+    clearTimeout(delTimer);
+    saving = true; b.disabled = true;
+    try { await deleteDoc(doc(fs, "albums", editingId)); closeForm(); }
+    catch (e) { $("formMsg").textContent = "삭제하지 못했습니다. 다시 시도하세요."; resetDeleteBtn(); }
+    finally { saving = false; b.disabled = false; }
   }
 
   // ---------- CSV ----------
@@ -659,6 +690,7 @@ const firebaseConfig = {
   $("btnAdd").addEventListener("click", function () { openForm(null); });
   $("btnCancel").addEventListener("click", closeForm);
   $("btnSave").addEventListener("click", onSave);
+  $("btnDelete").addEventListener("click", onDeleteClick);
   $("btnExport").addEventListener("click", exportCsv);
   ["q", "fltCat", "fltArtist", "fltSig"].forEach(function (id) {
     $(id).addEventListener("input", render);
