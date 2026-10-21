@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>음반 DB</title>
+<title>Album DB</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -15,6 +15,8 @@
   --primary: #1f5f6b;
   --primary-ink: #ffffff;
   --accent: #c27f00;
+  --star: #d4900a;
+  --star-off: #cfd5cf;
   --danger: #a3352b;
   --track: #d6dcd6;
   --focus: #1f5f6b;
@@ -33,6 +35,8 @@
     --primary: #5fb3c2;
     --primary-ink: #0d1517;
     --accent: #f0b13a;
+    --star: #f0b13a;
+    --star-off: #3a4649;
     --danger: #ec8478;
     --track: #2f3b3e;
     --focus: #5fb3c2;
@@ -48,6 +52,8 @@
   --primary: #5fb3c2;
   --primary-ink: #0d1517;
   --accent: #f0b13a;
+  --star: #f0b13a;
+  --star-off: #3a4649;
   --danger: #ec8478;
   --track: #2f3b3e;
   --focus: #5fb3c2;
@@ -64,7 +70,7 @@ body {
   line-height: 1.55;
 }
 .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 56px; }
-header.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
 h1 {
   margin: 0;
   font-family: "Noto Serif KR", "Batang", serif;
@@ -73,8 +79,6 @@ h1 {
   letter-spacing: -0.02em;
   line-height: 1.15;
 }
-.stats { display: flex; gap: 18px; color: var(--muted); font-size: 14px; margin-top: 6px; flex-wrap: wrap; }
-.stats b { color: var(--ink); font-weight: 700; }
 .status { font-size: 13px; color: var(--muted); }
 .status.err { color: var(--danger); }
 
@@ -94,7 +98,8 @@ button { cursor: pointer; }
 .btn.danger { color: var(--danger); border-color: var(--danger); }
 .btn.small { padding: 4px 10px; min-height: 30px; font-size: 13px; }
 .btn[disabled] { opacity: .5; cursor: default; }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.actions[hidden] { display: none; }
 
 .toolbar {
   display: grid;
@@ -140,15 +145,22 @@ tbody tr:last-child td { border-bottom: 0; }
 th { font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
 th button { background: none; border: 0; padding: 0; color: inherit; font-weight: inherit; display: inline-flex; gap: 4px; align-items: center; }
 th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
-.col-cat { width: 110px; } .col-rate { width: 120px; } .col-year { width: 74px; } .col-act { width: 120px; }
+.col-cat { width: 110px; } .col-rate { width: 150px; } .col-year { width: 74px; } .col-act { width: 120px; }
 
 .cat { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
 .cat i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.rate { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
-.rate .n { font-weight: 700; min-width: 2.2em; }
-.rate .sig { color: var(--accent); font-size: 17px; line-height: 1; }
-.meter { height: 4px; width: 46px; background: var(--track); border-radius: 2px; overflow: hidden; margin-top: 7px; }
-.meter span { display: block; height: 100%; background: var(--primary); }
+.rate { display: flex; align-items: center; gap: 8px; }
+.stars { display: inline-flex; font-size: 17px; line-height: 1; letter-spacing: 1px; }
+.star { display: inline-block; color: var(--star-off); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .star {
+    background: linear-gradient(90deg, var(--star) var(--f, 0%), var(--star-off) var(--f, 0%));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+.rate .none { color: var(--muted); }
+.rate .chk { color: var(--primary); font-weight: 700; font-size: 17px; line-height: 1; }
 .year { font-variant-numeric: tabular-nums; }
 .artist { font-size: 13px; color: var(--muted); }
 .album { font-family: "Noto Serif KR", "Batang", serif; font-weight: 700; font-size: 16px; line-height: 1.35; }
@@ -191,19 +203,15 @@ th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
 <body>
 <div class="wrap">
   <header class="top">
-    <div>
-      <h1>음반 DB</h1>
-      <div class="stats" aria-live="polite">
-        <span>전체 <b id="stTotal">0</b>장</span>
-        <span>대표앨범 <b id="stSig">0</b>장</span>
-        <span>보이는 앨범 <b id="stShown">0</b>장</span>
-      </div>
-    </div>
+    <h1>Album DB</h1>
     <div class="actions">
-      <span class="status" id="status">DB 연결 중</span>
-      <button class="btn" id="btnImport" type="button">일괄 가져오기</button>
-      <button class="btn" id="btnExport" type="button" hidden>CSV 내보내기</button>
-      <button class="btn primary" id="btnAdd" type="button">앨범 추가</button>
+      <span class="status" id="status"></span>
+      <div class="actions" id="actionGroup" hidden>
+        <button class="btn primary" id="btnAdd" type="button">앨범 추가</button>
+        <button class="btn" id="btnImport" type="button">일괄 가져오기</button>
+        <button class="btn" id="btnExport" type="button" hidden>CSV 내보내기</button>
+      </div>
+      <button class="btn" id="btnMenu" type="button" aria-expanded="false" aria-controls="actionGroup">펼치기 ▾</button>
     </div>
   </header>
 
@@ -371,6 +379,18 @@ const firebaseConfig = {
     return joined;
   }
 
+  function starsEl(r) {
+    var wrap = document.createElement("span"); wrap.className = "stars";
+    wrap.setAttribute("role", "img"); wrap.setAttribute("aria-label", "별점 " + fmtRate(r) + "점"); wrap.title = fmtRate(r) + "점";
+    for (var i = 0; i < 5; i++) {
+      var f = Math.max(0, Math.min(1, r - i));
+      var st = document.createElement("span"); st.className = "star"; st.textContent = "★";
+      st.style.setProperty("--f", (f * 100) + "%");
+      wrap.appendChild(st);
+    }
+    return wrap;
+  }
+
   function td(cls) { var c = document.createElement("td"); c.className = cls; return c; }
 
   function render() {
@@ -387,9 +407,6 @@ const firebaseConfig = {
     });
 
     var list = visible();
-    $("stTotal").textContent = albums.length;
-    $("stSig").textContent = albums.filter(function (a) { return a.signature; }).length;
-    $("stShown").textContent = list.length;
     $("btnExport").hidden = albums.length === 0;
 
     var tb = $("rows"); tb.textContent = "";
@@ -398,7 +415,7 @@ const firebaseConfig = {
     if (list.length === 0) {
       empty.hidden = false;
       empty.textContent = albums.length === 0
-        ? (canWrite ? "아직 등록된 앨범이 없습니다. 위의 ‘앨범 추가’로 첫 앨범을 등록하세요." : "등록된 앨범이 없습니다.")
+        ? (canWrite ? "아직 등록된 앨범이 없습니다. 위의 ‘펼치기’를 눌러 ‘앨범 추가’로 첫 앨범을 등록하세요." : "등록된 앨범이 없습니다.")
         : "조건에 맞는 앨범이 없습니다. 검색어나 필터를 바꿔 보세요.";
       return;
     }
@@ -415,13 +432,14 @@ const firebaseConfig = {
 
       var c2 = td("t-rate");
       var rate = document.createElement("div"); rate.className = "rate";
-      var n = document.createElement("span"); n.className = "n"; n.textContent = a.rating == null ? "-" : fmtRate(a.rating);
-      rate.appendChild(n);
-      if (a.signature) { var s = document.createElement("span"); s.className = "sig"; s.textContent = "★"; s.title = "대표앨범"; s.setAttribute("aria-label", "대표앨범"); rate.appendChild(s); }
+      if (a.rating == null) {
+        var none = document.createElement("span"); none.className = "none"; none.textContent = "-"; none.title = "평가 보류";
+        rate.appendChild(none);
+      } else {
+        rate.appendChild(starsEl(a.rating));
+      }
+      if (a.signature) { var ck = document.createElement("span"); ck.className = "chk"; ck.textContent = "✓"; ck.title = "대표앨범"; ck.setAttribute("aria-label", "대표앨범"); rate.appendChild(ck); }
       c2.appendChild(rate);
-      var m = document.createElement("div"); m.className = "meter";
-      var ms = document.createElement("span"); ms.style.width = Math.max(0, Math.min(100, (a.rating || 0) / 5 * 100)) + "%";
-      m.appendChild(ms); c2.appendChild(m);
 
       var c3 = td("t-year"); c3.className = "t-year year"; c3.textContent = a.year || "";
 
@@ -531,7 +549,7 @@ const firebaseConfig = {
   async function exportCsv() {
     var rows = [["구분", "별점", "대표앨범", "연도", "아티스트", "제목", "한줄평"]];
     visible().forEach(function (a) {
-      rows.push([a.category, a.rating, a.signature ? "★" : "", a.year, a.artist, a.title, a.comment]);
+      rows.push([a.category, a.rating, a.signature ? "✓" : "", a.year, a.artist, a.title, a.comment]);
     });
     var text = "\ufeff" + rows.map(function (r) { return r.map(csvCell).join(","); }).join("\r\n");
     var blob = new Blob([text], { type: "text/csv;charset=utf-8" });
@@ -551,8 +569,8 @@ const firebaseConfig = {
       if (cols[0] === "구분") return;
       var n = (i + 1) + "번째 줄";
       if (cols.length < 4) { errors.push(n + ": 열이 부족합니다 (구분, 별점, 연도, 제목은 필수)"); return; }
-      var rateRaw = cols[1], sig = rateRaw.indexOf("★") >= 0;
-      var rateTxt = rateRaw.replace(/[★\s]/g, ""), rating = null;
+      var rateRaw = cols[1], sig = /[★✓√✔]/.test(rateRaw);
+      var rateTxt = rateRaw.replace(/[★✓√✔\s]/g, ""), rating = null;
       if (rateTxt !== "" && rateTxt !== "-") {
         rating = parseFloat(rateTxt);
         if (isNaN(rating) || rating < 0.5 || rating > 5 || Math.round(rating * 2) !== rating * 2) { errors.push(n + ": 별점을 읽을 수 없습니다 (" + rateRaw + ")"); return; }
@@ -588,7 +606,7 @@ const firebaseConfig = {
       var ul = document.createElement("ul");
       fresh.forEach(function (r) {
         var li = document.createElement("li");
-        li.textContent = r.year + "  " + r.title + "  (" + r.category + ", " + (r.rating == null ? "평가 보류" : fmtRate(r.rating)) + (r.signature ? " ★" : "") + ")";
+        li.textContent = r.year + "  " + r.title + "  (" + r.category + ", " + (r.rating == null ? "평가 보류" : fmtRate(r.rating)) + (r.signature ? " ✓" : "") + ")";
         ul.appendChild(li);
       });
       box.appendChild(ul);
@@ -621,6 +639,12 @@ const firebaseConfig = {
   }
 
   // ---------- 이벤트 ----------
+  $("btnMenu").addEventListener("click", function () {
+    var opening = $("actionGroup").hidden;
+    $("actionGroup").hidden = !opening;
+    this.setAttribute("aria-expanded", opening ? "true" : "false");
+    this.textContent = opening ? "접기 ▴" : "펼치기 ▾";
+  });
   $("btnImport").addEventListener("click", function () { closeForm(); $("importPanel").hidden = false; $("iArtist").focus(); });
   $("btnImportCancel").addEventListener("click", function () { $("importPanel").hidden = true; });
   $("btnImportSave").addEventListener("click", runImport);
@@ -670,10 +694,9 @@ const firebaseConfig = {
   }
   var app = initializeApp(firebaseConfig);
   fs = getFirestore(app);
-  setStatus("DB 연결 중");
   unsub = onSnapshot(collection(fs, "albums"), function (snap) {
     albums = snap.docs.map(function (d) { var o = Object.assign({}, d.data()); o.id = d.id; return o; });
-    loaded = true; setStatus("DB 연결됨"); render();
+    loaded = true; setStatus(""); render();
   }, function (e) {
     loaded = true;
     setStatus(e && e.code === "permission-denied" ? "읽기가 거부되었습니다. Firestore 규칙을 확인하세요" : "DB 연결이 끊어졌습니다. 새로고침하세요.", true);
