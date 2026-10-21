@@ -99,6 +99,7 @@ button { cursor: pointer; }
 .btn:hover { border-color: var(--muted); }
 .btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); font-weight: 700; }
 .btn.danger { color: var(--danger); border-color: var(--danger); }
+header.top .btn { font-size: 13px; padding: 4px 10px; min-height: 28px; }
 .btn.small { padding: 4px 10px; min-height: 30px; font-size: 13px; }
 .btn[disabled] { opacity: .5; cursor: default; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -173,7 +174,6 @@ tbody tr:focus-visible { outline-offset: -2px; }
 @media (pointer: coarse) {
   tbody tr { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 }
-.hint { margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
 .btn.danger.armed { background: var(--danger); border-color: var(--danger); color: var(--surface); }
 
 .empty { padding: 44px 20px; text-align: center; color: var(--muted); }
@@ -281,11 +281,11 @@ tbody tr:focus-visible { outline-offset: -2px; }
     <select class="field" id="fltCat" aria-label="구분 필터"></select>
     <select class="field" id="fltRating" aria-label="별점 필터">
       <option value="0">별점 전체</option>
-      <option value="5">★★★★★ 5개</option>
-      <option value="4">★★★★ 4개 이상</option>
-      <option value="3">★★★ 3개 이상</option>
-      <option value="2">★★ 2개 이상</option>
-      <option value="1">★ 1개 이상</option>
+      <option value="5">★★★★★</option>
+      <option value="4">★★★★</option>
+      <option value="3">★★★</option>
+      <option value="2">★★</option>
+      <option value="1">★</option>
     </select>
     <label class="check"><input type="checkbox" id="fltSig"> 대표앨범만</label>
   </div>
@@ -305,7 +305,6 @@ tbody tr:focus-visible { outline-offset: -2px; }
     </table>
     <div class="empty" id="empty" hidden></div>
   </div>
-  <p class="hint">앨범을 길게 누르면 수정 창이 열립니다.</p>
 </div>
 
 <script type="module">
