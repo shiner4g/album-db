@@ -143,13 +143,13 @@ textarea.field { font: inherit; resize: vertical; min-height: 140px; }
 .msg { color: var(--danger); font-size: 13px; }
 
 .table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; min-width: 760px; }
+table { width: 100%; border-collapse: collapse; min-width: 860px; }
 th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
 tbody tr:last-child td { border-bottom: 0; }
 th { font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
 th button { background: none; border: 0; padding: 0; color: inherit; font-weight: inherit; display: inline-flex; gap: 4px; align-items: center; }
 th button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
-.col-year { width: 74px; } .col-rate { width: 170px; } .col-cat { width: 110px; }
+.col-year { width: 74px; } .col-rate { width: 170px; } .col-genre { width: 130px; } .col-cat { width: 110px; }
 
 .cat { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
 .cat i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
@@ -190,7 +190,7 @@ tbody tr:focus-visible { outline-offset: -2px; }
   tbody tr {
     display: grid;
     grid-template-columns: auto 1fr auto;
-    grid-template-areas: "title title rate" "year cat cat" "comment comment comment";
+    grid-template-areas: "title title rate" "year genre cat" "comment comment comment";
     gap: 6px 10px;
     padding: 12px 14px;
     border-bottom: 1px solid var(--line);
@@ -198,6 +198,7 @@ tbody tr:focus-visible { outline-offset: -2px; }
   tbody tr:last-child { border-bottom: 0; }
   td { display: block; padding: 0; border: 0; }
   td.t-year { grid-area: year; align-self: center; color: var(--muted); }
+  td.t-genre { grid-area: genre; align-self: center; }
   td.t-cat { grid-area: cat; align-self: center; }
   td.t-rate { grid-area: rate; }
   td.t-title { grid-area: title; }
@@ -224,9 +225,13 @@ tbody tr:focus-visible { outline-offset: -2px; }
   <section class="panel" id="formPanel" hidden aria-labelledby="formTitle">
     <h2 id="formTitle">앨범 추가</h2>
     <div class="form-grid">
-      <label class="c-3 half">구분
+      <label class="c-2 half">구분
         <input class="field" id="fCat" list="catList" placeholder="솔로, 그룹, 라이브 등" maxlength="30">
         <datalist id="catList"></datalist>
+      </label>
+      <label class="c-3 half">장르
+        <input class="field" id="fGenre" list="genreList" placeholder="예: 퓨전 재즈, 포스트밥" maxlength="40">
+        <datalist id="genreList"></datalist>
       </label>
       <label class="c-2 half">별점 (5점 만점)
         <select class="field" id="fRate"></select>
@@ -297,6 +302,7 @@ tbody tr:focus-visible { outline-offset: -2px; }
           <th class="col-year"><button type="button" data-sort="year" aria-pressed="false">연도</button></th>
           <th><button type="button" data-sort="artist" aria-pressed="false">제목</button></th>
           <th class="col-rate"><button type="button" data-sort="rating" aria-pressed="false">별점</button></th>
+          <th class="col-genre"><button type="button" data-sort="genre" aria-pressed="false">장르</button></th>
           <th class="col-cat"><button type="button" data-sort="category" aria-pressed="false">구분</button></th>
           <th>한줄평</th>
         </tr>
@@ -362,7 +368,7 @@ const firebaseConfig = {
       if (minR && !(a.rating != null && a.rating >= minR)) return false;
       if (sig && !a.signature) return false;
       if (q) {
-        var hay = ((a.artist || "") + " " + (a.title || "") + " " + (a.comment || "")).toLowerCase();
+        var hay = ((a.artist || "") + " " + (a.title || "") + " " + (a.comment || "") + " " + (a.genre || "")).toLowerCase();
         if (hay.indexOf(q) === -1) return false;
       }
       return true;
@@ -378,6 +384,7 @@ const firebaseConfig = {
       if (k === "rating") r = (a.rating || 0) - (b.rating || 0);
       else if (k === "year") r = (a.year || 0) - (b.year || 0);
       else if (k === "category") r = cmpStr(a.category, b.category);
+      else if (k === "genre") r = cmpStr(a.genre, b.genre);
       else if (k === "artist") r = cmpStr(a.artist, b.artist);
       if (r !== 0) return r * d;
       return byDefault(a, b);
@@ -421,6 +428,13 @@ const firebaseConfig = {
       var o = document.createElement("option"); o.value = c; dl.appendChild(o);
     });
 
+    var gs = {};
+    albums.forEach(function (a) { if (a.genre) gs[a.genre] = 1; });
+    var gl = $("genreList"); gl.textContent = "";
+    Object.keys(gs).sort(function (x, y) { return x.localeCompare(y, "ko"); }).forEach(function (g) {
+      var o = document.createElement("option"); o.value = g; gl.appendChild(o);
+    });
+
     var list = visible();
     $("btnExport").hidden = albums.length === 0;
 
@@ -462,6 +476,8 @@ const firebaseConfig = {
       }
       cRate.appendChild(rate);
 
+      var cGenre = td("t-genre"); cGenre.textContent = a.genre || "";
+
       var cCat = td("t-cat");
       var cat = document.createElement("span"); cat.className = "cat";
       var dot = document.createElement("i"); dot.style.background = catColor(a.category || "");
@@ -470,7 +486,7 @@ const firebaseConfig = {
 
       var cCom = td("t-comment comment"); cCom.textContent = a.comment || "";
 
-      [cYear, cTitle, cRate, cCat, cCom].forEach(function (c) { tr.appendChild(c); });
+      [cYear, cTitle, cRate, cGenre, cCat, cCom].forEach(function (c) { tr.appendChild(c); });
       attachLongPress(tr, a);
       tb.appendChild(tr);
     });
@@ -504,6 +520,7 @@ const firebaseConfig = {
     editingId = a ? a.id : null;
     $("formTitle").textContent = a ? "앨범 수정" : "앨범 추가";
     $("fCat").value = a ? (a.category || "") : "";
+    $("fGenre").value = a ? (a.genre || "") : "";
     $("fRate").value = a ? (a.rating == null ? "" : String(a.rating)) : "4";
     $("fYear").value = a ? (a.year || "") : "";
     $("fArtist").value = a ? (a.artist || "") : lastArtist;
@@ -538,6 +555,7 @@ const firebaseConfig = {
     if (!yearRaw || isNaN(year) || year < 1900 || year > 2100) { $("formMsg").textContent = "연도를 1900~2100 사이 숫자로 입력하세요."; $("fYear").focus(); return; }
     var data = {
       category: $("fCat").value.trim() || "기타",
+      genre: $("fGenre").value.trim(),
       rating: $("fRate").value === "" ? null : parseFloat($("fRate").value),
       year: year,
       artist: artist,
@@ -587,9 +605,9 @@ const firebaseConfig = {
   // ---------- CSV ----------
   function csvCell(v) { var s = String(v == null ? "" : v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
   async function exportCsv() {
-    var rows = [["구분", "별점", "대표앨범", "연도", "아티스트", "제목", "한줄평"]];
+    var rows = [["구분", "별점", "대표앨범", "장르", "연도", "아티스트", "제목", "한줄평"]];
     visible().forEach(function (a) {
-      rows.push([a.category, a.rating, a.signature ? "✓" : "", a.year, a.artist, a.title, a.comment]);
+      rows.push([a.category, a.rating, a.signature ? "✓" : "", a.genre, a.year, a.artist, a.title, a.comment]);
     });
     var text = "\ufeff" + rows.map(function (r) { return r.map(csvCell).join(","); }).join("\r\n");
     var blob = new Blob([text], { type: "text/csv;charset=utf-8" });
@@ -609,6 +627,7 @@ const firebaseConfig = {
     rating: ["별점", "평점", "rating"],
     pick: ["대표", "대표앨범", "pick"],
     category: ["구분", "분류", "category"],
+    genre: ["장르", "genre"],
     comment: ["한줄평", "코멘트", "비고", "메모", "comment"]
   };
   function normCell(v) { return String(v || "").replace(/\s+/g, "").toLowerCase(); }
@@ -663,7 +682,7 @@ const firebaseConfig = {
         if (isNaN(rating) || rating < 0.5 || rating > 5 || Math.round(rating * 2) !== rating * 2) { errors.push(n + ": 별점을 읽을 수 없습니다 (" + rateRaw + ")"); return; }
       }
       rows.push({
-        category: g("category") || "기타", rating: rating, year: year, artist: artist, title: title,
+        category: g("category") || "기타", genre: g("genre"), rating: rating, year: year, artist: artist, title: title,
         comment: g("comment"), signature: /[★✓√✔]/.test(rateRaw) || isPick(g("pick"))
       });
     });
@@ -693,7 +712,7 @@ const firebaseConfig = {
       var ul = document.createElement("ul");
       fresh.forEach(function (r) {
         var li = document.createElement("li");
-        li.textContent = r.year + "  " + r.artist + " - " + r.title + "  (" + r.category + ", " + (r.rating == null ? "평가 보류" : fmtRate(r.rating)) + (r.signature ? " ✓" : "") + ")";
+        li.textContent = r.year + "  " + r.artist + " - " + r.title + "  (" + r.category + (r.genre ? ", " + r.genre : "") + ", " + (r.rating == null ? "평가 보류" : fmtRate(r.rating)) + (r.signature ? " ✓" : "") + ")";
         ul.appendChild(li);
       });
       box.appendChild(ul);
@@ -752,7 +771,7 @@ const firebaseConfig = {
     $(id).addEventListener("input", render);
     $(id).addEventListener("change", render);
   });
-  ["fCat", "fYear", "fArtist", "fTitle", "fComment"].forEach(function (id) {
+  ["fCat", "fGenre", "fYear", "fArtist", "fTitle", "fComment"].forEach(function (id) {
     $(id).addEventListener("keydown", function (e) { if (e.key === "Enter") onSave(); });
   });
   var sortBtns = document.querySelectorAll("th button[data-sort]");
