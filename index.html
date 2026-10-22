@@ -107,7 +107,7 @@ header.top .btn { font-size: 13px; padding: 4px 10px; min-height: 28px; }
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) repeat(2, minmax(120px, 1fr)) auto;
+  grid-template-columns: minmax(160px, 2fr) repeat(3, minmax(100px, 1fr)) auto;
   gap: 10px;
   align-items: center;
   margin-bottom: 14px;
@@ -174,7 +174,7 @@ tbody tr:focus-visible { outline-offset: -2px; }
 @media (pointer: coarse) {
   tbody tr { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 }
-.btn.danger.armed { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+.btn.primary.armed, .btn.danger.armed { background: var(--danger); border-color: var(--danger); color: var(--surface); }
 
 .empty { padding: 44px 20px; text-align: center; color: var(--muted); }
 
@@ -216,6 +216,7 @@ tbody tr:focus-visible { outline-offset: -2px; }
       <div class="actions" id="actionGroup" hidden>
         <button class="btn primary" id="btnAdd" type="button">앨범 추가</button>
         <button class="btn" id="btnImport" type="button">가져오기</button>
+        <button class="btn" id="btnBulk" type="button">장르 일괄 수정</button>
         <button class="btn" id="btnExport" type="button" hidden>내보내기</button>
       </div>
       <button class="btn" id="btnMenu" type="button" aria-expanded="false" aria-controls="actionGroup">펼치기 ▾</button>
@@ -281,8 +282,28 @@ tbody tr:focus-visible { outline-offset: -2px; }
     </div>
   </section>
 
+  <section class="panel" id="bulkPanel" hidden aria-labelledby="bulkTitle">
+    <h2 id="bulkTitle">장르 일괄 수정</h2>
+    <div class="preview" id="bInfo" style="margin:0 0 12px"></div>
+    <div class="form-grid">
+      <label class="c-4">변경할 장르
+        <input class="field" id="bGenre" list="genreList" maxlength="40" placeholder="비워 두면 장르를 지웁니다">
+      </label>
+      <label class="c-8" style="justify-content:flex-end">
+        <span class="check" style="padding-bottom:8px"><input type="checkbox" id="bEmptyOnly"> 장르가 비어 있는 앨범만 변경</span>
+      </label>
+    </div>
+    <div class="form-foot">
+      <button class="btn primary" id="btnBulkApply" type="button" disabled>적용</button>
+      <button class="btn" id="btnBulkClose" type="button">닫기</button>
+      <span class="msg" id="bMsg" role="alert"></span>
+      <span class="preview" id="bDone" style="margin:0" aria-live="polite"></span>
+    </div>
+  </section>
+
   <div class="toolbar">
     <input class="field search" id="q" type="search" placeholder="아티스트, 제목, 한줄평 검색" aria-label="검색">
+    <select class="field" id="fltGenre" aria-label="장르 필터"></select>
     <select class="field" id="fltCat" aria-label="구분 필터"></select>
     <select class="field" id="fltRating" aria-label="별점 필터">
       <option value="0">별점 전체</option>
@@ -338,7 +359,7 @@ const firebaseConfig = {
   var editingId = null, saving = false;
   var sort = { key: null, dir: "asc" };  // key가 null이면 기본 순서(아티스트 → 연도)
   var delTimer = null;
-  var lastCatKey = "", lastArtist = "";
+  var lastCatKey = "", lastGenreKey = "", lastArtist = "";
 
   // 별점 선택지 0.5 ~ 5.0
   (function () {
@@ -362,9 +383,11 @@ const firebaseConfig = {
   // ---------- 목록 그리기 ----------
   function visible() {
     var q = $("q").value.trim().toLowerCase();
-    var cat = $("fltCat").value, minR = parseFloat($("fltRating").value) || 0, sig = $("fltSig").checked;
+    var gen = $("fltGenre").value, cat = $("fltCat").value, minR = parseFloat($("fltRating").value) || 0, sig = $("fltSig").checked;
     var list = albums.filter(function (a) {
       if (cat && a.category !== cat) return false;
+      if (gen === "__none__") { if (a.genre) return false; }
+      else if (gen && a.genre !== gen) return false;
       if (minR && !(a.rating != null && a.rating >= minR)) return false;
       if (sig && !a.signature) return false;
       if (q) {
@@ -423,6 +446,20 @@ const firebaseConfig = {
     var catList = Object.keys(cats).sort(function (x, y) { return x.localeCompare(y, "ko"); });
     lastCatKey = fillSelect($("fltCat"), "구분 전체", catList, lastCatKey);
 
+    var gset = {}, hasNoGenre = false;
+    albums.forEach(function (a) { if (a.genre) gset[a.genre] = 1; else hasNoGenre = true; });
+    var genreNames = Object.keys(gset).sort(function (x, y) { return x.localeCompare(y, "ko"); });
+    var gKey = genreNames.join("\u0001") + (hasNoGenre ? "\u0002" : "");
+    if (gKey !== lastGenreKey) {
+      var gsel = $("fltGenre"), gcur = gsel.value;
+      gsel.textContent = "";
+      var g0 = document.createElement("option"); g0.value = ""; g0.textContent = "장르 전체"; gsel.appendChild(g0);
+      genreNames.forEach(function (g) { var o = document.createElement("option"); o.value = g; o.textContent = g; gsel.appendChild(o); });
+      if (hasNoGenre) { var gn = document.createElement("option"); gn.value = "__none__"; gn.textContent = "장르 없음"; gsel.appendChild(gn); }
+      gsel.value = (gcur === "__none__" ? hasNoGenre : gset[gcur]) ? gcur : "";
+      lastGenreKey = gKey;
+    }
+
     var dl = $("catList"); dl.textContent = "";
     DEFAULT_CATS.concat(catList.filter(function (c) { return DEFAULT_CATS.indexOf(c) < 0; })).forEach(function (c) {
       var o = document.createElement("option"); o.value = c; dl.appendChild(o);
@@ -436,6 +473,7 @@ const firebaseConfig = {
     });
 
     var list = visible();
+    updateBulk();
     $("btnExport").hidden = albums.length === 0;
 
     var tb = $("rows"); tb.textContent = "";
@@ -529,7 +567,7 @@ const firebaseConfig = {
     $("fSig").checked = a ? !!a.signature : false;
     $("formMsg").textContent = "";
     $("btnDelete").hidden = !a; resetDeleteBtn();
-    $("importPanel").hidden = true;
+    $("importPanel").hidden = true; $("bulkPanel").hidden = true;
     $("formPanel").hidden = false;
     $("formPanel").scrollIntoView({ block: "start" });
     // 터치 기기에서는 키보드가 바로 뜨지 않도록 자동 포커스를 생략
@@ -744,14 +782,67 @@ const firebaseConfig = {
     } finally { saving = false; }
   }
 
+  // ---------- 장르 일괄 수정 ----------
+  // 대상 = 현재 목록에 보이는 앨범 (검색·필터로 범위를 좁힌 뒤 적용)
+  var bulkTimer = null, bulkArmedCount = 0;
+  function bulkTargets() {
+    var v = $("bGenre").value.trim(), emptyOnly = $("bEmptyOnly").checked;
+    return visible().filter(function (a) { return (!emptyOnly || !a.genre) && (a.genre || "") !== v; });
+  }
+  function disarmBulk() { clearTimeout(bulkTimer); $("btnBulkApply").classList.remove("armed"); updateBulk(); }
+  function updateBulk() {
+    if ($("bulkPanel").hidden) return;
+    var shown = visible().length, t = bulkTargets(), v = $("bGenre").value.trim(), btn = $("btnBulkApply");
+    $("bInfo").textContent = "현재 목록에 보이는 앨범 " + shown + "장이 범위입니다 (검색·필터로 범위를 좁힐 수 있습니다). 그중 변경 대상은 " + t.length + "장입니다.";
+    if (btn.classList.contains("armed") && bulkArmedCount !== t.length) { clearTimeout(bulkTimer); btn.classList.remove("armed"); }
+    if (!btn.classList.contains("armed")) {
+      btn.textContent = !t.length ? "변경할 앨범 없음" : (v ? t.length + "장의 장르를 ‘" + v + "’(으)로 변경" : t.length + "장의 장르 비우기");
+    }
+    btn.disabled = !t.length || saving;
+  }
+  async function applyBulk() {
+    if (!fs || saving) return;
+    var btn = $("btnBulkApply"), t = bulkTargets();
+    if (!t.length) return;
+    if (!btn.classList.contains("armed")) {   // 첫 번째 클릭: 확인 단계
+      bulkArmedCount = t.length; btn.classList.add("armed");
+      btn.textContent = "한 번 더 누르면 " + t.length + "장이 바뀝니다";
+      clearTimeout(bulkTimer); bulkTimer = setTimeout(disarmBulk, 3000);
+      return;
+    }
+    clearTimeout(bulkTimer); btn.classList.remove("armed");
+    var v = $("bGenre").value.trim(), done = 0;
+    saving = true; btn.disabled = true; $("bMsg").textContent = ""; $("bDone").textContent = "";
+    try {
+      for (var i = 0; i < t.length; i += 400) {
+        var batch = writeBatch(fs);
+        t.slice(i, i + 400).forEach(function (a) { batch.update(doc(fs, "albums", a.id), { genre: v }); });
+        await batch.commit();
+        done += Math.min(400, t.length - i);
+      }
+      $("bDone").textContent = done + "장의 장르를 " + (v ? "‘" + v + "’(으)로 변경했습니다." : "비웠습니다.");
+    } catch (e) {
+      $("bMsg").textContent = (done ? done + "장 변경 후 중단되었습니다. " : "") + errText(e);
+    } finally { saving = false; updateBulk(); }
+  }
+
   // ---------- 이벤트 ----------
+  $("btnBulk").addEventListener("click", function () {
+    closeForm(); $("importPanel").hidden = true;
+    $("bMsg").textContent = ""; $("bDone").textContent = "";
+    $("bulkPanel").hidden = false; updateBulk(); $("bGenre").focus();
+  });
+  $("btnBulkClose").addEventListener("click", function () { disarmBulk(); $("bulkPanel").hidden = true; });
+  $("btnBulkApply").addEventListener("click", applyBulk);
+  $("bGenre").addEventListener("input", function () { $("bDone").textContent = ""; disarmBulk(); });
+  $("bEmptyOnly").addEventListener("change", function () { $("bDone").textContent = ""; disarmBulk(); });
   $("btnMenu").addEventListener("click", function () {
     var opening = $("actionGroup").hidden;
     $("actionGroup").hidden = !opening;
     this.setAttribute("aria-expanded", opening ? "true" : "false");
     this.textContent = opening ? "접기 ▴" : "펼치기 ▾";
   });
-  $("btnImport").addEventListener("click", function () { closeForm(); $("importPanel").hidden = false; $("iArtist").focus(); });
+  $("btnImport").addEventListener("click", function () { closeForm(); $("bulkPanel").hidden = true; $("importPanel").hidden = false; $("iArtist").focus(); });
   $("btnImportCancel").addEventListener("click", function () { $("importPanel").hidden = true; });
   $("btnImportSave").addEventListener("click", runImport);
   $("iArtist").addEventListener("input", updateImportPreview);
@@ -767,7 +858,7 @@ const firebaseConfig = {
   $("btnSave").addEventListener("click", onSave);
   $("btnDelete").addEventListener("click", onDeleteClick);
   $("btnExport").addEventListener("click", exportCsv);
-  ["q", "fltCat", "fltRating", "fltSig"].forEach(function (id) {
+  ["q", "fltGenre", "fltCat", "fltRating", "fltSig"].forEach(function (id) {
     $(id).addEventListener("input", render);
     $(id).addEventListener("change", render);
   });
